@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Language Learning</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex h-screen">
+    <!-- Sidebar -->
+    <div class="w-64 bg-white shadow-md p-4">
+        <h2 class="text-xl font-bold mb-4">Learning Roadmap</h2>
+        <label for="chapter-select" class="block text-sm font-medium text-gray-700">Chọn Chương</label>
+        <select id="chapter-select" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+            <!-- Options will be populated dynamically -->
+        </select>
+        <label for="lesson-select" class="block text-sm font-medium text-gray-700 mt-4">Chọn Bài Học</label>
+        <select id="lesson-select" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+            <!-- Options will be populated dynamically -->
+        </select>
+    </div>
+
+    <!-- Main Content -->
+    <div class="flex-1 p-6 overflow-auto">
+        <div class="grid grid-cols-2 gap-6">
+            <!-- Example Column -->
+            <div>
+                <h1 class="text-2xl font-bold mb-4">Video Mẫu</h1>
+                <video id="example-video" controls class="w-full rounded-lg shadow-md" style="max-height: 400px;">
+                    <source src="" type="video/mp4">
+                    Trình duyệt của bạn không hỗ trợ video.
+                </video>
+                <h2 id="lesson-name" class="text-xl font-semibold mt-4">Bài Học: </h2>
+            </div>
+
+            <!-- Practice Column -->
+            <div>
+                <h1 class="text-2xl font-bold mb-4">Thực Hành</h1>
+                <video id="webcam-video" autoplay class="w-full rounded-lg shadow-md" style="max-height: 400px;"></video>
+                <p id="status-message" class="text-lg mt-4 font-semibold text-red-600">Tiếp Tục Luyện Tập</p>
+                <button id="start-webcam" class="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Bật Webcam</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Định nghĩa roadmap giống trong Streamlit
+        const roadmap = {
+            "Chapter 1": [
+                { name: "FLOWER", path: "/public/Color_video/509912909642189-FLOWER.mp4" },
+                { name: "CONGRATULATIONS", path: "/public/Color_video/164951232112037-CONGRATULATIONS.mp4" },
+                { name: "WELCOME", path: "/public/Color_video/12579272885288595-WELCOME.mp4" },
+                { name: "HELLO", path: "/public/Color_video/5339916560192981-HELLO.mp4" },
+                { name: "DESIGN", path: "/public/Color_video/7119068123432775-DESIGN.mp4" }
+            ],
+            "Chapter 2": [
+                { name: "BRIGHT", path: "/public/Color_video/18880274572777278-BRIGHT.mp4" },
+                { name: "GREET", path: "/public/Color_video/25196207384020064-GREET.mp4" },
+                { name: "CHEER", path: "/public/Color_video/48093054817466707-CHEER.mp4" }
+            ]
+        };
+
+        const chapterSelect = document.getElementById('chapter-select');
+        const lessonSelect = document.getElementById('lesson-select');
+        const exampleVideo = document.getElementById('example-video');
+        const lessonName = document.getElementById('lesson-name');
+        const webcamVideo = document.getElementById('webcam-video');
+        const statusMessage = document.getElementById('status-message');
+        const startWebcamButton = document.getElementById('start-webcam');
+        let stream = null;
+
+        // Base URL cho API FastAPI
+        const API_BASE_URL = 'http://localhost:8000';
+
+        // Điền danh sách chương
+        function populateChapters() {
+            console.log('Populating chapters:', Object.keys(roadmap));
+            chapterSelect.innerHTML = '';
+            if (Object.keys(roadmap).length === 0) {
+                chapterSelect.innerHTML = '<option value="">Không có chương</option>';
+                return;
+            }
+            Object.keys(roadmap).forEach(chapter => {
+                const option = document.createElement('option');
+                option.value = chapter;
+                option.textContent = chapter;
+                chapterSelect.appendChild(option);
+            });
+            updateLessons();
+        }
+
+        // Điền danh sách bài học
+        function updateLessons() {
+            const selectedChapter = chapterSelect.value;
+            console.log('Updating lessons for:', selectedChapter);
+            lessonSelect.innerHTML = '';
+            if (!roadmap[selectedChapter]) {
+                lessonSelect.innerHTML = '<option value="">Không có bài học</option>';
+                return;
+            }
+            roadmap[selectedChapter].forEach(lesson => {
+                const option = document.createElement('option');
+                option.value = lesson.path;
+                option.textContent = lesson.name;
+                lessonSelect.appendChild(option);
+            });
+            updateVideo();
+        }
+
+        // Cập nhật video mẫu và tên bài học
+        function updateVideo() {
+            const selectedLessonPath = lessonSelect.value;
+            const selectedLessonName = lessonSelect.options[lessonSelect.selectedIndex]?.text || '';
+            console.log('Updating video:', selectedLessonPath, selectedLessonName);
+            exampleVideo.src = selectedLessonPath;
+            lessonName.textContent = `Bài Học: ${selectedLessonName}`;
+            statusMessage.textContent = "Tiếp Tục Luyện Tập";
+            statusMessage.classList.remove('text-green-600');
+            statusMessage.classList.add('text-red-600');
+        }
+
+        // Khởi tạo
+        chapterSelect.addEventListener('change', updateLessons);
+        lessonSelect.addEventListener('change', updateVideo);
+        populateChapters(); // Gọi trực tiếp vì roadmap đã hardcode
+
+        // Xử lý webcam
+        async function startWebcam() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamVideo.srcObject = stream;
+                startWebcamButton.disabled = true;
+                processVideo();
+            } catch (err) {
+                console.error('Lỗi truy cập webcam:', err);
+                statusMessage.textContent = "Lỗi truy cập webcam";
+            }
+        }
+
+        // Gửi frame video đến API
+        async function processVideo() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = webcamVideo.videoWidth || 640;
+            canvas.height = webcamVideo.videoHeight || 480;
+            let frames = [];
+
+            // Thu thập 60 frame
+            const captureFrames = setInterval(() => {
+                if (frames.length >= 60) {
+                    clearInterval(captureFrames);
+                    sendFrames(frames);
+                    frames = [];
+                    if (stream) setTimeout(processVideo, 1000); // Tiếp tục xử lý
+                    return;
+                }
+                ctx.drawImage(webcamVideo, 0, 0, canvas.width, canvas.height);
+                frames.push(canvas.toDataURL('image/jpeg'));
+            }, 1000 / 30); // 30 FPS
+        }
+
+        // Gửi frame đến API
+        async function sendFrames(frames) {
+            try {
+                console.log('Sending frames for lesson:', lessonSelect.value);
+                const response = await fetch(`${API_BASE_URL}/api/process-video`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        frames,
+                        lessonPath: lessonSelect.value
+                    })
+                });
+                console.log('Process video response:', response);
+                if (!response.ok) throw new Error(`Lỗi HTTP! Trạng thái: ${response.status}`);
+                const result = await response.json();
+                console.log('Process video result:', result);
+                if (result.detail) {
+                    statusMessage.textContent = result.detail;
+                } else {
+                    statusMessage.textContent = result.status === 'Match!' ? 'Khớp!' : 'Tiếp Tục Luyện Tập';
+                    statusMessage.classList.toggle('text-green-600', result.status === 'Match!');
+                    statusMessage.classList.toggle('text-red-600', result.status !== 'Match!');
+                }
+            } catch (err) {
+                console.error('Lỗi xử lý video:', err);
+                statusMessage.textContent = "Lỗi xử lý video";
+            }
+        }
+
+        startWebcamButton.addEventListener('click', startWebcam);
+    </script>
+</body>
+</html>
